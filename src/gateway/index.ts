@@ -17,7 +17,7 @@ declare module 'fastify' {
 
 /**
  * Gateway concerns, installed on the /api/v1 scope: verify the bearer JWT
- * against the auth service's JWKS, and hold the user's WebSockets.
+ * against the auth service's JWKS.
  */
 export function installGateway(api: FastifyInstance, ctx: Ctx) {
   api.decorateRequest('user', null);
@@ -34,19 +34,6 @@ export function installGateway(api: FastifyInstance, ctx: Ctx) {
     }
   });
 
-  // 60. Browsers cannot set headers on a WebSocket, so the access token comes as ?token=
-  api.get('/ws', { websocket: true }, (socket, req) => {
-    const { token } = req.query as { token?: string };
-    ctx.keys.verify(token ?? '').then(
-      (user) => {
-        if (socket.readyState !== socket.OPEN) return;
-        const unsubscribe = ctx.pubsub.subscribe(`user:${user.id}`, (message) => socket.send(JSON.stringify(message)));
-        socket.on('close', unsubscribe);
-        socket.send(JSON.stringify({ type: 'ready' }));
-      },
-      () => socket.close(4401, 'unauthorized'),
-    );
-  });
 }
 
 export function currentUser(req: FastifyRequest): AuthUser {
